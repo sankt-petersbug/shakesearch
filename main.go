@@ -33,8 +33,8 @@ func readData(fpath string) ([]store.ShakespeareWork, error) {
 	if err := json.Unmarshal(byt, &works); err != nil {
 		return nil, err
 	}
-	for _, work := range works {
-		work.ID = sanitizeTitle(work.Title)
+	for i := 0; i < len(works); i++ {
+		works[i].ID = sanitizeTitle(works[i].Title)
 	}
 	log.Infof("Total %d works found", len(works))
 	return works, nil
