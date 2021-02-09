@@ -11,6 +11,7 @@ import (
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/analysis/analyzer/keyword"
 	"github.com/blevesearch/bleve/analysis/lang/en"
+	"github.com/blevesearch/bleve/mapping"
 	"github.com/blevesearch/bleve/search/query"
 	log "github.com/sirupsen/logrus"
 )
@@ -297,7 +298,7 @@ func newSearchRequest(options SearchOptions) (*bleve.SearchRequest, error) {
 	return req, nil
 }
 
-func createIndex(useInMemory bool) (bleve.Index, error) {
+func createMapping() mapping.IndexMapping {
 	keywordFieldMapping := bleve.NewTextFieldMapping()
 	keywordFieldMapping.Analyzer = keyword.Name
 	textFieldMapping := bleve.NewTextFieldMapping()
@@ -309,15 +310,21 @@ func createIndex(useInMemory bool) (bleve.Index, error) {
 	mapping.DefaultMapping.AddFieldMappingsAt("Text", textFieldMapping)
 	mapping.DefaultMapping.AddFieldMappingsAt("WorkID", keywordFieldMapping)
 
-	index, err := bleve.NewMemOnly(mapping)
-	if !useInMemory {
-		index, err = bleve.New("shakesearch.bleve", mapping)
-	}
-	if err != nil {
-		return nil, err
-	}
+	return mapping
+}
 
-	return index, nil
+func createIndex(useInMemory bool) (bleve.Index, error) {
+	mapping := createMapping()
+
+	if useInMemory {
+		return bleve.NewMemOnly(mapping)
+	}
+	indexPath := "shakesearch.bleve"
+	index, err := bleve.New(indexPath, mapping)
+	if err != nil { // path already exists
+		return bleve.Open(indexPath)
+	}
+	return index, err
 }
 
 // NewBleveStore creates a new Bleve based store

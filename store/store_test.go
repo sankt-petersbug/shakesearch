@@ -174,6 +174,15 @@ func TestBleveStore_Search(t *testing.T) {
 			},
 			expected: []string{"3"},
 		},
+		{
+			name: "pagination",
+			options: SearchOptions{
+				Query:      "term",
+				PageNumber: 2,
+				PageSize:   1,
+			},
+			expected: []string{"4"},
+		},
 	}
 
 	for _, tc := range testCases {
