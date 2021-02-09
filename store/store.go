@@ -1,8 +1,8 @@
 package store
 
 import (
-	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,12 +30,21 @@ func getFragment(frag map[string][]string) string {
 	return ""
 }
 
+func parseZeroPaddedNumber(s string) (int, error) {
+	return strconv.Atoi(strings.TrimLeft(s, "0"))
+}
+
+func toZeroPaddedString(n int) string {
+	width := 10
+	return fmt.Sprintf("%0*d", width, n)
+}
+
 // SearchOptions represents the search options
 // TODO: let user provide highlighter
 type SearchOptions struct {
 	Query      string   `query:"q"`
 	Fuzziness  int      `query:"fuzziness"`
-	WorkID     float64  `query:"workId"`
+	WorkID     string   `query:"workId"`
 	PageNumber int      `query:"page[number]"`
 	PageSize   int      `query:"page[size]"`
 	SortBy     []string `query:"sortBy"`
@@ -78,7 +87,7 @@ type Hit struct {
 	LineNumber int     `json:"lineNumber"`
 	Score      float64 `json:"score"`
 	Title      string  `json:"title"`
-	WorkID     int     `json:"workId"`
+	WorkID     string  `json:"workId"`
 }
 
 // SearchResult represents the result of search
@@ -90,7 +99,7 @@ type SearchResult struct {
 
 // ShakespeareWork represents Shakespeare's work(poem, play, sonnet, ...)
 type ShakespeareWork struct {
-	ID      int    `json:"id"`
+	ID      string `json:"id"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
 }
@@ -98,21 +107,22 @@ type ShakespeareWork struct {
 // Title represents a title of Shakespeare's work
 type Title struct {
 	Title  string `json:"title"`
-	WorkID int    `json:"workId"`
+	WorkID string `json:"workId"`
 }
 
 // Document represents a single line of Shakespeare's work
 type Document struct {
-	LineNumber int
+	LineNumber string
 	Text       string
 	Title      string
-	WorkID     int
+	WorkID     string
 }
 
 // BleveStore implements methods to find and search Shakespeare's works
 type BleveStore struct {
 	index bleve.Index
-	works map[int]ShakespeareWork
+	works map[string]ShakespeareWork
+	lines map[string]Document
 }
 
 // BatchIndex batch inserts and indexes a slice of ShakespeareWork
@@ -129,7 +139,7 @@ func (b *BleveStore) BatchIndex(data []ShakespeareWork) error {
 			}
 			docID := strconv.Itoa(count)
 			doc := Document{
-				LineNumber: i + 1,
+				LineNumber: toZeroPaddedString(i + 1),
 				Text:       line,
 				Title:      work.Title,
 				WorkID:     work.ID,
@@ -137,13 +147,7 @@ func (b *BleveStore) BatchIndex(data []ShakespeareWork) error {
 			if err := batch.Index(docID, doc); err != nil {
 				return err
 			}
-			byt, err := json.Marshal(doc)
-			if err != nil {
-				return err
-			}
-			if err := b.index.SetInternal([]byte(docID), byt); err != nil {
-				return err
-			}
+			b.lines[docID] = doc
 			batchCount++
 			count++
 			if batchCount >= batchSize {
@@ -167,24 +171,26 @@ func (b *BleveStore) BatchIndex(data []ShakespeareWork) error {
 func (b *BleveStore) parseResult(result *bleve.SearchResult, v *SearchResult) error {
 	v.Meta.TotalResults = int(result.Total)
 	for _, hit := range result.Hits {
-		byt, err := b.index.GetInternal([]byte(hit.ID))
-		if err != nil {
-			return err
-		}
-		var doc Document
-		if err := json.Unmarshal(byt, &doc); err != nil {
-			return err
+		doc, ok := b.lines[hit.ID]
+		if !ok {
+			return errors.New(fmt.Sprintf("line not found: %s", hit.ID))
 		}
 		line := getFragment(hit.Fragments)
 		if line == "" {
 			line = doc.Text
 		}
+
+		lineNumber, err := parseZeroPaddedNumber(doc.LineNumber)
+		if err != nil {
+			return err
+		}
+
 		v.Data = append(
 			v.Data,
 			Hit{
 				Score:      hit.Score,
 				Line:       line,
-				LineNumber: doc.LineNumber,
+				LineNumber: lineNumber,
 				Title:      doc.Title,
 				WorkID:     doc.WorkID,
 			},
@@ -224,7 +230,7 @@ func (b *BleveStore) Search(options SearchOptions) (SearchResult, error) {
 }
 
 // GetWorkByID returns a ShakespeareWork with matching id
-func (b *BleveStore) GetWorkByID(id int) (ShakespeareWork, error) {
+func (b *BleveStore) GetWorkByID(id string) (ShakespeareWork, error) {
 	var work ShakespeareWork
 	work, ok := b.works[id]
 	if !ok {
@@ -259,9 +265,8 @@ func newSearchRequest(options SearchOptions) (*bleve.SearchRequest, error) {
 		}
 		searchQuery = bleve.NewDisjunctionQuery(queries...)
 	}
-	if options.WorkID > 0.0 {
-		max := float64(options.WorkID + 1)
-		idQuery := bleve.NewNumericRangeQuery(&options.WorkID, &max)
+	if options.WorkID != "" {
+		idQuery := bleve.NewTermQuery(options.WorkID)
 		idQuery.SetField("WorkID")
 		searchQuery = bleve.NewConjunctionQuery(
 			searchQuery,
@@ -280,21 +285,22 @@ func newSearchRequest(options SearchOptions) (*bleve.SearchRequest, error) {
 	return req, nil
 }
 
-func createIndex() (bleve.Index, error) {
-	numericFieldMapping := bleve.NewNumericFieldMapping()
-	numericFieldMapping.Analyzer = keyword.Name
+func createIndex(useInMemory bool) (bleve.Index, error) {
 	keywordFieldMapping := bleve.NewTextFieldMapping()
 	keywordFieldMapping.Analyzer = keyword.Name
 	textFieldMapping := bleve.NewTextFieldMapping()
 	textFieldMapping.Analyzer = en.AnalyzerName
 
 	mapping := bleve.NewIndexMapping()
-	mapping.DefaultMapping.AddFieldMappingsAt("LineNumber", numericFieldMapping)
+	mapping.DefaultMapping.AddFieldMappingsAt("LineNumber", keywordFieldMapping)
 	mapping.DefaultMapping.AddFieldMappingsAt("Title", keywordFieldMapping)
 	mapping.DefaultMapping.AddFieldMappingsAt("Text", textFieldMapping)
-	mapping.DefaultMapping.AddFieldMappingsAt("WorkID", numericFieldMapping)
+	mapping.DefaultMapping.AddFieldMappingsAt("WorkID", keywordFieldMapping)
 
 	index, err := bleve.NewMemOnly(mapping)
+	if !useInMemory {
+		index, err = bleve.New("shakesearch.bleve", mapping)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -303,14 +309,15 @@ func createIndex() (bleve.Index, error) {
 }
 
 // NewBleveStore creates a new Bleve based store
-func NewBleveStore() (*BleveStore, error) {
-	index, err := createIndex()
+func NewBleveStore(useInMemory bool) (*BleveStore, error) {
+	index, err := createIndex(useInMemory)
 	if err != nil {
 		return nil, err
 	}
 	s := &BleveStore{
 		index: index,
-		works: make(map[int]ShakespeareWork),
+		works: make(map[string]ShakespeareWork),
+		lines: make(map[string]Document),
 	}
 	return s, nil
 }

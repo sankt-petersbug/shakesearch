@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -24,13 +23,13 @@ var errorHandler = func(c *fiber.Ctx, err error) error {
 
 type Store interface {
 	ListTitles() []store.Title
-	GetWorkByID(id int) (store.ShakespeareWork, error)
+	GetWorkByID(id string) (store.ShakespeareWork, error)
 	Search(options store.SearchOptions) (store.SearchResult, error)
 }
 
 // NewApp returns initialized fiber app
 func NewApp(works []store.ShakespeareWork) (*fiber.App, error) {
-	bleveSearcher, err := store.NewBleveStore()
+	bleveSearcher, err := store.NewBleveStore(false)
 	if err != nil {
 		return nil, err
 	}
@@ -55,11 +54,7 @@ func newFiberApp(s Store) *fiber.App {
 	})
 	app.Get("/works/:id", func(c *fiber.Ctx) error {
 		id := c.Params("id")
-		workID, err := strconv.Atoi(id)
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "id must be an integer")
-		}
-		work, err := s.GetWorkByID(workID)
+		work, err := s.GetWorkByID(id)
 		if err != nil {
 			return fiber.NewError(fiber.StatusNotFound, fmt.Sprintf("work not found: %s", id))
 		}

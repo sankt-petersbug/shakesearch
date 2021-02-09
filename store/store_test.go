@@ -15,7 +15,7 @@ func init() {
 }
 
 func newTestStore(data []ShakespeareWork) *BleveStore {
-	searcher, err := NewBleveStore()
+	searcher, err := NewBleveStore(true)
 	if err != nil {
 		panic(err)
 	}
@@ -27,8 +27,8 @@ func newTestStore(data []ShakespeareWork) *BleveStore {
 
 func TestBleveStore_ParseResult(t *testing.T) {
 	data := []ShakespeareWork{
-		{ID: 1, Title: "Title1", Content: "content1"},
-		{ID: 2, Title: "Title2", Content: "content2"},
+		{ID: "1", Title: "Title1", Content: "content1"},
+		{ID: "2", Title: "Title2", Content: "content2"},
 	}
 	searcher := newTestStore(data)
 
@@ -61,8 +61,8 @@ func TestBleveStore_ParseResult(t *testing.T) {
 			},
 			total: 2,
 			expected: []Hit{
-				{Line: "fragment", LineNumber: 1, Score: 1.0, Title: "Title1", WorkID: 1},
-				{Line: "fragment", LineNumber: 1, Score: 1.0, Title: "Title2", WorkID: 2},
+				{Line: "fragment", LineNumber: 1, Score: 1.0, Title: "Title1", WorkID: "1"},
+				{Line: "fragment", LineNumber: 1, Score: 1.0, Title: "Title2", WorkID: "2"},
 			},
 		},
 		{
@@ -79,7 +79,7 @@ func TestBleveStore_ParseResult(t *testing.T) {
 			},
 			total: 1,
 			expected: []Hit{
-				{Line: "content1", LineNumber: 1, Score: 1.0, Title: "Title1", WorkID: 1},
+				{Line: "content1", LineNumber: 1, Score: 1.0, Title: "Title1", WorkID: "1"},
 			},
 		},
 	}
@@ -98,17 +98,17 @@ func TestBleveStore_ParseResult(t *testing.T) {
 
 func TestBleveStore_Search(t *testing.T) {
 	data := []ShakespeareWork{
-		{ID: 1, Title: "First Title", Content: "first stemming"},
-		{ID: 2, Title: "Second Title", Content: "second stemming"},
-		{ID: 3, Title: "Third Title", Content: "third term"},
-		{ID: 4, Title: "Last Title", Content: "picasso term"},
+		{ID: "1", Title: "First Title", Content: "first stemming"},
+		{ID: "2", Title: "Second Title", Content: "second stemming"},
+		{ID: "3", Title: "Third Title", Content: "third term"},
+		{ID: "4", Title: "Last Title", Content: "picasso term"},
 	}
 	searcher := newTestStore(data)
 
 	testCases := []struct {
 		name     string
 		options  SearchOptions
-		expected []int
+		expected []string
 	}{
 		{
 			name: "return all if empty query",
@@ -116,7 +116,7 @@ func TestBleveStore_Search(t *testing.T) {
 				PageNumber: 1,
 				PageSize:   10,
 			},
-			expected: []int{1, 2, 3, 4},
+			expected: []string{"1", "2", "3", "4"},
 		},
 		{
 			name: "exact match",
@@ -125,7 +125,7 @@ func TestBleveStore_Search(t *testing.T) {
 				PageNumber: 1,
 				PageSize:   10,
 			},
-			expected: []int{4},
+			expected: []string{"4"},
 		},
 		{
 			name: "stemming",
@@ -134,7 +134,7 @@ func TestBleveStore_Search(t *testing.T) {
 				PageNumber: 1,
 				PageSize:   10,
 			},
-			expected: []int{1, 2},
+			expected: []string{"1", "2"},
 		},
 		{
 			name: "multi terms",
@@ -143,7 +143,7 @@ func TestBleveStore_Search(t *testing.T) {
 				PageNumber: 1,
 				PageSize:   10,
 			},
-			expected: []int{1},
+			expected: []string{"1"},
 		},
 		{
 			name: "case-insensitive",
@@ -152,7 +152,7 @@ func TestBleveStore_Search(t *testing.T) {
 				PageNumber: 1,
 				PageSize:   10,
 			},
-			expected: []int{1},
+			expected: []string{"1"},
 		},
 		{
 			name: "fuzzy",
@@ -162,17 +162,17 @@ func TestBleveStore_Search(t *testing.T) {
 				PageNumber: 1,
 				PageSize:   10,
 			},
-			expected: []int{1},
+			expected: []string{"1"},
 		},
 		{
 			name: "specific work",
 			options: SearchOptions{
 				Query:      "term",
-				WorkID:     3,
+				WorkID:     "3",
 				PageNumber: 1,
 				PageSize:   10,
 			},
-			expected: []int{3},
+			expected: []string{"3"},
 		},
 	}
 
@@ -181,7 +181,7 @@ func TestBleveStore_Search(t *testing.T) {
 			result, err := searcher.Search(tc.options)
 			assert.Nil(t, err)
 
-			var got []int
+			var got []string
 			for _, hit := range result.Data {
 				got = append(got, hit.WorkID)
 			}
@@ -192,8 +192,8 @@ func TestBleveStore_Search(t *testing.T) {
 
 func TestBleveStore_Search_SortBy(t *testing.T) {
 	data := []ShakespeareWork{
-		{ID: 1, Title: "TitleA", Content: "line1\nline2"},
-		{ID: 2, Title: "TitleB", Content: "line3\nline4"},
+		{ID: "1", Title: "TitleA", Content: "line1\nline2"},
+		{ID: "2", Title: "TitleB", Content: "line3\nline4"},
 	}
 	searcher := newTestStore(data)
 
@@ -215,12 +215,12 @@ func TestBleveStore_Search_SortBy(t *testing.T) {
 
 func TestBleveStore_GetWorkByID(t *testing.T) {
 	data := []ShakespeareWork{
-		{ID: 1, Title: "TitleA", Content: "content"},
-		{ID: 2, Title: "TitleB", Content: "content"},
+		{ID: "1", Title: "TitleA", Content: "content"},
+		{ID: "2", Title: "TitleB", Content: "content"},
 	}
 	searcher := newTestStore(data)
 
-	work, err := searcher.GetWorkByID(1)
+	work, err := searcher.GetWorkByID("1")
 	assert.Nil(t, err)
 	assert.Equal(t, data[0], work)
 }
@@ -229,14 +229,14 @@ func TestBleveStore_GetWorkByID_NotFound(t *testing.T) {
 	data := []ShakespeareWork{}
 	searcher := newTestStore(data)
 
-	_, err := searcher.GetWorkByID(1)
+	_, err := searcher.GetWorkByID("1")
 	assert.Equal(t, ErrWorkNotFound, err)
 }
 
 func TestBleveStore_ListTitles(t *testing.T) {
 	data := []ShakespeareWork{
-		{ID: 1, Title: "TitleA", Content: "content"},
-		{ID: 2, Title: "TitleB", Content: "content"},
+		{ID: "1", Title: "TitleA", Content: "content"},
+		{ID: "2", Title: "TitleB", Content: "content"},
 	}
 	searcher := newTestStore(data)
 

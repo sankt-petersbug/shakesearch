@@ -2,13 +2,26 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
+	"unicode"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/sankt-petersbug/shakesearch/app"
 	"github.com/sankt-petersbug/shakesearch/store"
 )
+
+func sanitizeTitle(s string) string {
+	return strings.Map(func(c rune) rune {
+		if unicode.IsLetter(c) {
+			return c
+		}
+		return -1
+	}, s)
+}
 
 func readData(fpath string) ([]store.ShakespeareWork, error) {
 	log.Infof("Reading data from %s", fpath)
@@ -21,8 +34,8 @@ func readData(fpath string) ([]store.ShakespeareWork, error) {
 	if err := json.Unmarshal(byt, &works); err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(works); i++ {
-		works[i].ID = i + 1
+	for _, work := range works {
+		work.ID = sanitizeTitle(work.Title)
 	}
 	log.Infof("Total %d works found", len(works))
 	return works, nil
@@ -42,7 +55,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	addr := ":3000"
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+	addr := fmt.Sprintf(":%s", port)
 	if err := app.Listen(addr); err != nil {
 		panic(err)
 	}

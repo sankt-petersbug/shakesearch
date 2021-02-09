@@ -23,7 +23,7 @@ func init() {
 
 type fakeStore struct {
 	listTitlesFunc  func() []store.Title
-	getWorkByIDFunc func(id int) (store.ShakespeareWork, error)
+	getWorkByIDFunc func(id string) (store.ShakespeareWork, error)
 	searchFunc      func(store.SearchOptions) (store.SearchResult, error)
 }
 
@@ -34,7 +34,7 @@ func (f *fakeStore) ListTitles() []store.Title {
 	return nil
 }
 
-func (f *fakeStore) GetWorkByID(id int) (store.ShakespeareWork, error) {
+func (f *fakeStore) GetWorkByID(id string) (store.ShakespeareWork, error) {
 	if f.getWorkByIDFunc != nil {
 		return f.getWorkByIDFunc(id)
 	}
@@ -75,25 +75,20 @@ func TestRoute_WorkByID_Success(t *testing.T) {
 
 	work, err := readRespBody(resp.Body)
 	assert.Nil(t, err)
-	assert.Equal(t, 1, work.ID)
+	assert.Equal(t, "1", work.ID)
 }
 
 func TestRoute_WorkByID_Errors(t *testing.T) {
 	testCases := []struct {
 		name            string
 		id              string
-		getWorkByIDFunc func(id int) (store.ShakespeareWork, error)
+		getWorkByIDFunc func(id string) (store.ShakespeareWork, error)
 		statusCode      int
 	}{
 		{
-			name:       "non numeric id",
-			id:         "str",
-			statusCode: http.StatusBadRequest,
-		},
-		{
 			name: "not found",
 			id:   "1",
-			getWorkByIDFunc: func(id int) (store.ShakespeareWork, error) {
+			getWorkByIDFunc: func(id string) (store.ShakespeareWork, error) {
 				return store.ShakespeareWork{}, defaultErr
 			},
 			statusCode: http.StatusNotFound,
