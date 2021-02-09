@@ -1,32 +1,120 @@
 # ShakeSearch
 
-Welcome to the Pulley Shakesearch Take-home Challenge! In this repository,
-you'll find a simple web app that allows a user to search for a text string in
-the complete works of Shakespeare.
+ShakeSearch is simple application for searching William Shakespeare's works.
+See [example app](https://peter-shakesearch.herokuapp.com/)
 
-You can see a live version of the app at
-https://pulley-shakesearch.herokuapp.com/. Try searching for "Hamlet" to display
-a set of results.
+NOTE: the example application is hosted on Heroku free tier and [goes to sleep](https://devcenter.heroku.com/articles/free-dyno-hours#dyno-sleeping) if it receives no web traffic in a 30-minute period. If that happens, it may not be able to return a full result so try it again a few seconds later.
 
-In it's current state, however, the app is just a rough prototype. The search is
-case sensitive, the results are difficult to read, and the search is limited to
-exact matches.
+## Start Server
 
-## Your Mission
+Using make:
 
-Improve the search backend. Think about the problem from the **user's perspective**
-and prioritize your changes according to what you think is most useful. 
+```sh
+$ make start
+```
+or you can also do:
 
-## Evaluation
+```sh
+$ go run main.go
+```
 
-We will be primarily evaluating based on how well the search works for users. A search result with a lot of features (i.e. multi-words and mis-spellings handled), but with results that are hard to read would not be a strong submission. 
+then open `localhost:3000`
+
+## Rest APIs
+
+#### Search
+
+Endpoint: `GET /search`
+
+QueryParams:
+
+- q (str): query string
+- page[number] (int): page number to return
+- page[size] (int): number of record in a page
+- fuzziness (int): fuzzy search (default: 0)
+- workId (str): search from a specific work
+- sortBy (str): a comma-delimited list(prefix - to desc. -Title). available fields: Title, LineNumber, WorkID, _score 
 
 
-## Submission
+```sh
+$ curl 'localhost:3000/search?q=sonnet&fuzziness=1&page[size]=10&sortBy=Title,LineNumber'
+```
 
-1. Fork this repository and send us a link to your fork after pushing your changes. 
-2. Heroku hosting - The project includes a Heroku Procfile and, in its
-current state, can be deployed easily on Heroku's free tier.
-3. In your submission, share with us what changes you made and how you would prioritize changes if you had more time.
+Example Response:
 
+```json
+{
+    "data": [
+        {
+            "line": "And deep-brain’d <mark>sonnets</mark> that did amplify",
+            "lineNumber": 481,
+            "score": 0.9557341597600069,
+            "title": "A LOVER’S COMPLAINT",
+            "workId": "ALOVERSCOMPLAINT"
+        },
+        {
+            "line": "Good Captain, will you give me a copy of the <mark>sonnet</mark> you writ to Diana",
+            "lineNumber": 7787,
+            "score": 0.6758060938119992,
+            "title": "ALL’S WELL THAT ENDS WELL",
+            "workId": "ALLSWELLTHATENDSWELL"
+        }
+    ],
+    "meta": {
+        "highlight": {
+            "postTag": "</mark>",
+            "preTag": "<mark>"
+        },
+        "pageNumber": 1,
+        "pageSize": 2,
+        "totalResults": 39
+    }
+}
+```
 
+#### List Titles
+
+Endpoint: `GET /titles`
+
+```sh
+$ curl localhost:3000/titles
+```
+
+Example Response:
+
+```json
+[
+    {
+        "title": "A LOVER’S COMPLAINT",
+        "workId": "ALOVERSCOMPLAINT"
+    },
+    {
+        "title": "A MIDSUMMER NIGHT’S DREAM",
+        "workId": "AMIDSUMMERNIGHTSDREAM"
+    },
+]
+```
+
+#### Get Work
+
+Endpoint: `GET /works/:id`
+
+```sh
+$ curl localhost:3000/works/ALOVERSCOMPLAINT
+```
+
+Example Response:
+
+```json
+{
+    "content": "\n\n\n\n\n\nFrom off a hill whose concave womb reworded\n\nA plaintful story from a sist’ring vale,\n\nMy spirits t’attend this double voice accorded,\n\nAnd down I laid to list the sad-tun’d tale;\n\nEre long espied a fickle maid full pale,\n\nTearing of papers, breaking rings a-twain,\n\nStorming her world with sorrow’s wind and rain.\n\n\n\nUpon her head a platted hive of straw,\n\nWhich fortified her visage from the sun,\n\nWhereon the thought might think sometime it saw\n\nThe carcass of a beauty spent and done;\n\nTime had not scythed all that youth begun,\n\n...",
+    "id": "ALOVERSCOMPLAINT",
+    "title": "A LOVER’S COMPLAINT"
+}
+```
+
+## TODO
+
+- Divide work into sections/chapters (indexing each line is expensive and returning too many results for a user to parse)
+- Performance tuning and benchmarks
+- Improve search results
