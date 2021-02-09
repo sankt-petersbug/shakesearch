@@ -260,3 +260,57 @@ textarea {
     page-break-after: avoid;
   }
 }
+
+/* Style the form - display items horizontally */
+.form-inline {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+}
+
+/* Add some margins for each label */
+.form-inline label {
+  margin: 5px 10px 5px 0;
+}
+
+/* Style the input fields */
+.form-inline input {
+  vertical-align: middle;
+  margin: 5px 10px 5px 0;
+  padding: 10px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+}
+
+/* Style the input text field */
+.form-inline input[type=text] {
+  width: 300px;
+}
+
+/* Style the submit button */
+.form-inline button {
+  border-radius: 4px;
+  padding: 10px 20px;
+  background-color: #e0e0e0;
+  border: 1px solid #ddd;
+  color: rgba(0, 0, 0, 0.87);
+  font-size: 1rem;
+  margin-left: 15px;
+}
+
+.form-inline button:hover {
+  background-color: #d5d5d5;
+}
+
+.container {
+  padding: 20px 20px;  
+}
+
+#total {
+  color: #70757a;
+  padding-bottom: 5px;
+}
+
+#result {
+  padding-top: 20px;
+}

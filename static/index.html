@@ -9,18 +9,28 @@
 </head>
 
 <body>
-    <p>
-        <form id="form">
-            <label for="query">Query</label>
-            <input type="text" id="query" name="query">
-            <button type="submit">Search</button>
-        </form>
-    </p>
-    <p>
-        <table id="table">
-          <tbody id="table-body"></tbody>
-        </table>
-    </p>
+  <section class="container">
+    <div>
+      <form id="form" class="form-inline">
+        <div class="form-group">
+          <label for="query">Query</label>
+          <input type="text" id="query" name="query" placeholder="search...">
+        </div>
+        <div class="checkbox">
+          <label>
+            <input type="checkbox" name="fuzzy"> Fuzzy
+          </label>
+        </div>
+        <button type="submit">Search</button>
+      </form>
+    </div>
+    <div id="result">
+      <div id="total"></div>
+      <table id="table">
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </section>
   <script src="app.js"></script>
 </body>
 

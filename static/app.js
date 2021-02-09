@@ -3,18 +3,25 @@ const Controller = {
     ev.preventDefault();
     const form = document.getElementById("form");
     const data = Object.fromEntries(new FormData(form));
-    const response = fetch(`/search?q=${data.query}`).then((response) => {
+    const fuzziness = data.fuzzy && data.fuzzy === 'on' ? 1 : 0;
+    const response = fetch(`/search?q=${data.query}&fuzziness=${fuzziness}&page[size]=5000`).then((response) => {
       response.json().then((results) => {
-        Controller.updateTable(results);
+        Controller.updateResultView(results);
       });
     });
   },
 
-  updateTable: (results) => {
+  updateResultView: (results) => {
+    // total
+    const totalDiv = document.getElementById("total");
+    const totalResults = results.meta.totalResults;
+    totalDiv.textContent = totalResults ? `${results.meta.totalResults} resutls` : 'No results';
+
+    // table
     const table = document.getElementById("table-body");
     const rows = [];
-    for (let result of results) {
-      rows.push(`<tr>${result}<tr/>`);
+    for (let hit of results.data) {
+      rows.push(`<tr>[${hit.title}] ${hit.lineNumber}.&ensp;${hit.line}</tr>`);
     }
     table.innerHTML = rows;
   },
