@@ -1,82 +1,50 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
-	"index/suffixarray"
 	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
+
+	log "github.com/sirupsen/logrus"
+
+	"github.com/sankt-petersbug/shakesearch/app"
+	"github.com/sankt-petersbug/shakesearch/store"
 )
 
+func readData(fpath string) ([]store.ShakespeareWork, error) {
+	log.Infof("Reading data from %s", fpath)
+	byt, err := ioutil.ReadFile(fpath)
+	if err != nil {
+		return nil, err
+	}
+
+	var works []store.ShakespeareWork
+	if err := json.Unmarshal(byt, &works); err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(works); i++ {
+		works[i].ID = i + 1
+	}
+	log.Infof("Total %d works found", len(works))
+	return works, nil
+}
+
 func main() {
-	searcher := Searcher{}
-	err := searcher.Load("completeworks.txt")
+	formatter := &log.TextFormatter{
+		FullTimestamp: true,
+	}
+	log.SetFormatter(formatter)
+
+	works, err := readData("data.json")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/", fs)
-
-	http.HandleFunc("/search", handleSearch(searcher))
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "3001"
-	}
-
-	fmt.Printf("Listening on port %s...", port)
-	err = http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
+	app, err := app.NewApp(works)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-}
-
-type Searcher struct {
-	CompleteWorks string
-	SuffixArray   *suffixarray.Index
-}
-
-func handleSearch(searcher Searcher) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		query, ok := r.URL.Query()["q"]
-		if !ok || len(query[0]) < 1 {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("missing search query in URL params"))
-			return
-		}
-		results := searcher.Search(query[0])
-		buf := &bytes.Buffer{}
-		enc := json.NewEncoder(buf)
-		err := enc.Encode(results)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("encoding failure"))
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(buf.Bytes())
+	addr := ":3000"
+	if err := app.Listen(addr); err != nil {
+		panic(err)
 	}
-}
-
-func (s *Searcher) Load(filename string) error {
-	dat, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return fmt.Errorf("Load: %w", err)
-	}
-	s.CompleteWorks = string(dat)
-	s.SuffixArray = suffixarray.New(dat)
-	return nil
-}
-
-func (s *Searcher) Search(query string) []string {
-	idxs := s.SuffixArray.Lookup([]byte(query), -1)
-	results := []string{}
-	for _, idx := range idxs {
-		results = append(results, s.CompleteWorks[idx-250:idx+250])
-	}
-	return results
+	log.Infof("Server running on %s", addr)
 }
