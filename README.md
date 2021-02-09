@@ -3,7 +3,7 @@
 ShakeSearch is simple application for searching William Shakespeare's works.
 See [example app](https://peter-shakesearch.herokuapp.com/)
 
-NOTE: the example application is hosted on Heroku free tier and [goes to sleep](https://devcenter.heroku.com/articles/free-dyno-hours#dyno-sleeping) if it receives no web traffic in a 30-minute period. If that happens, it may not be able to return a full result so try it again a few seconds later.
+NOTE: the example application is hosted on Heroku free tier and [goes to sleep](https://devcenter.heroku.com/articles/free-dyno-hours#dyno-sleeping) if it receives no web traffic in a 30-minute period. If that happens, it may not be able to return a full result so try it again later(takes about 130 seconds to index texts).
 
 ## Start Server
 
@@ -20,11 +20,7 @@ $ go run main.go
 
 then open `localhost:3000`
 
-## Rest APIs
-
-#### Search
-
-Endpoint: `GET /search`
+## GET /search
 
 QueryParams:
 
@@ -72,9 +68,7 @@ Example Response:
 }
 ```
 
-#### List Titles
-
-Endpoint: `GET /titles`
+## GET /titles
 
 ```sh
 $ curl localhost:3000/titles
@@ -95,9 +89,7 @@ Example Response:
 ]
 ```
 
-#### Get Work
-
-Endpoint: `GET /works/:id`
+## GET /works/:id
 
 ```sh
 $ curl localhost:3000/works/ALOVERSCOMPLAINT
