@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -27,21 +28,40 @@ type Store interface {
 	Search(options store.SearchOptions) (store.SearchResult, error)
 }
 
-// NewApp returns initialized fiber app
-func NewApp(works []store.ShakespeareWork) (*fiber.App, error) {
-	bleveSearcher, err := store.NewBleveStore(false)
-	if err != nil {
-		return nil, err
-	}
+type App struct {
+	store *store.BleveStore
+	api   *fiber.App
+}
+
+// Load loads data to the store
+func (a *App) Load(works []store.ShakespeareWork) error {
 	log.Info("Start indexing documents")
 	start := time.Now()
-	if err := bleveSearcher.BatchIndex(works); err != nil {
-		return nil, err
+	if err := a.store.BatchIndex(works); err != nil {
+		return err
 	}
 	duration := time.Since(start)
 	log.Infof("Finished indexing. Took %d seconds", int(duration.Seconds()))
+	return nil
+}
 
-	return newFiberApp(bleveSearcher), nil
+// Listen runs server on a port
+func (a *App) Listen(port string) error {
+	addr := fmt.Sprintf(":%s", port)
+	return a.api.Listen(addr)
+}
+
+// NewApp initializes and returns a server app
+func NewApp() (*App, error) {
+	bleveStore, err := store.NewBleveStore(false)
+	if err != nil {
+		return nil, err
+	}
+	app := &App{
+		store: bleveStore,
+		api:   newFiberApp(bleveStore),
+	}
+	return app, nil
 }
 
 func newFiberApp(s Store) *fiber.App {
@@ -56,7 +76,10 @@ func newFiberApp(s Store) *fiber.App {
 		id := c.Params("id")
 		work, err := s.GetWorkByID(id)
 		if err != nil {
-			return fiber.NewError(fiber.StatusNotFound, fmt.Sprintf("work not found: %s", id))
+			if errors.Is(err, store.ErrWorkNotFound) {
+				return fiber.NewError(fiber.StatusNotFound, fmt.Sprintf("work not found: %s", id))
+			}
+			return err
 		}
 		return c.JSON(work)
 	})
@@ -76,6 +99,6 @@ func newFiberApp(s Store) *fiber.App {
 		}
 		return c.JSON(searchResult)
 	})
-	log.Info("Initialize app")
+	log.Info("Initialized api")
 	return app
 }

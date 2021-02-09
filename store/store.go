@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/analysis/analyzer/keyword"
@@ -121,8 +122,8 @@ type Document struct {
 // BleveStore implements methods to find and search Shakespeare's works
 type BleveStore struct {
 	index bleve.Index
-	works map[string]ShakespeareWork
-	lines map[string]Document
+	works *sync.Map
+	lines *sync.Map
 }
 
 // BatchIndex batch inserts and indexes a slice of ShakespeareWork
@@ -132,7 +133,7 @@ func (b *BleveStore) BatchIndex(data []ShakespeareWork) error {
 	count := 1
 	batch := b.index.NewBatch()
 	for _, work := range data {
-		b.works[work.ID] = work
+		b.works.Store(work.ID, work)
 		for i, line := range strings.Split(work.Content, "\n") {
 			if strings.TrimSpace(line) == "" {
 				continue
@@ -147,7 +148,7 @@ func (b *BleveStore) BatchIndex(data []ShakespeareWork) error {
 			if err := batch.Index(docID, doc); err != nil {
 				return err
 			}
-			b.lines[docID] = doc
+			b.lines.Store(docID, doc)
 			batchCount++
 			count++
 			if batchCount >= batchSize {
@@ -171,9 +172,13 @@ func (b *BleveStore) BatchIndex(data []ShakespeareWork) error {
 func (b *BleveStore) parseResult(result *bleve.SearchResult, v *SearchResult) error {
 	v.Meta.TotalResults = int(result.Total)
 	for _, hit := range result.Hits {
-		doc, ok := b.lines[hit.ID]
+		found, ok := b.lines.Load(hit.ID)
 		if !ok {
 			return errors.New(fmt.Sprintf("line not found: %s", hit.ID))
+		}
+		doc, ok := found.(Document)
+		if !ok {
+			return errors.New(fmt.Sprintf("Failed to parse a line: %s", hit.ID))
 		}
 		line := getFragment(hit.Fragments)
 		if line == "" {
@@ -232,9 +237,13 @@ func (b *BleveStore) Search(options SearchOptions) (SearchResult, error) {
 // GetWorkByID returns a ShakespeareWork with matching id
 func (b *BleveStore) GetWorkByID(id string) (ShakespeareWork, error) {
 	var work ShakespeareWork
-	work, ok := b.works[id]
+	found, ok := b.works.Load(id)
 	if !ok {
 		return work, ErrWorkNotFound
+	}
+	work, ok = found.(ShakespeareWork)
+	if !ok {
+		return work, errors.New("Failed to parse work")
 	}
 	return work, nil
 }
@@ -242,9 +251,12 @@ func (b *BleveStore) GetWorkByID(id string) (ShakespeareWork, error) {
 // ListTitles returns a slice of work titles
 func (b *BleveStore) ListTitles() []Title {
 	var titles []Title
-	for _, v := range b.works {
-		titles = append(titles, Title{Title: v.Title, WorkID: v.ID})
-	}
+
+	b.works.Range(func(key, value interface{}) bool {
+		work := value.(ShakespeareWork)
+		titles = append(titles, Title{Title: work.Title, WorkID: work.ID})
+		return true
+	})
 	sort.Slice(titles, func(i, j int) bool {
 		return titles[i].Title < titles[j].Title
 	})
@@ -316,8 +328,8 @@ func NewBleveStore(useInMemory bool) (*BleveStore, error) {
 	}
 	s := &BleveStore{
 		index: index,
-		works: make(map[string]ShakespeareWork),
-		lines: make(map[string]Document),
+		works: new(sync.Map),
+		lines: new(sync.Map),
 	}
 	return s, nil
 }

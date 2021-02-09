@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -47,21 +46,25 @@ func main() {
 	}
 	log.SetFormatter(formatter)
 
-	works, err := readData("data.json")
-	if err != nil {
-		panic(err)
-	}
-	app, err := app.NewApp(works)
-	if err != nil {
-		panic(err)
-	}
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "3000"
 	}
-	addr := fmt.Sprintf(":%s", port)
-	if err := app.Listen(addr); err != nil {
+	works, err := readData("data.json")
+	if err != nil {
 		panic(err)
 	}
-	log.Infof("Server running on %s", addr)
+
+	app, err := app.NewApp()
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		if err := app.Load(works); err != nil {
+			panic(err)
+		}
+	}()
+
+	app.Listen(port)
+	log.Infof("Server running on %s", port)
 }

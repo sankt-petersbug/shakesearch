@@ -89,7 +89,7 @@ func TestRoute_WorkByID_Errors(t *testing.T) {
 			name: "not found",
 			id:   "1",
 			getWorkByIDFunc: func(id string) (store.ShakespeareWork, error) {
-				return store.ShakespeareWork{}, defaultErr
+				return store.ShakespeareWork{}, store.ErrWorkNotFound
 			},
 			statusCode: http.StatusNotFound,
 		},
