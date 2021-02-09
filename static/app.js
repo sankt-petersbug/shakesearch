@@ -1,10 +1,13 @@
+const pageSize = 5000;
+
 const Controller = {
   search: (ev) => {
     ev.preventDefault();
     const form = document.getElementById("form");
     const data = Object.fromEntries(new FormData(form));
     const fuzziness = data.fuzzy && data.fuzzy === 'on' ? 1 : 0;
-    const response = fetch(`/search?q=${data.query}&fuzziness=${fuzziness}&page[size]=5000`).then((response) => {
+    const endpoint = `/search?q=${data.query}&fuzziness=${fuzziness}&page[size]=${pageSize}`;
+    const response = fetch(endpoint).then((response) => {
       response.json().then((results) => {
         Controller.updateResultView(results);
       });
@@ -15,7 +18,7 @@ const Controller = {
     // total
     const totalDiv = document.getElementById("total");
     const totalResults = results.meta.totalResults;
-    totalDiv.textContent = totalResults ? `${results.meta.totalResults} resutls` : 'No results';
+    totalDiv.textContent = totalResults ? `${results.meta.totalResults} resutls (showing only ${pageSize})` : 'No results';
 
     // table
     const table = document.getElementById("table-body");
